@@ -72,12 +72,14 @@ def get_joke_by_number_endpoint(joke_number):
 
 
 # Serve audio files from the 'Joke audio' directory
-from flask import send_from_directory
+from flask import send_from_directory, make_response
 
 @app.route('/audio/<path:filename>')
 def serve_audio(filename):
     audio_dir = os.path.join(os.path.dirname(__file__), 'Joke audio')
-    return send_from_directory(audio_dir, filename)
+    response = make_response(send_from_directory(audio_dir, filename))
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
