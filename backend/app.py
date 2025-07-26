@@ -35,7 +35,7 @@ def get_random_joke_endpoint():
         else:
             joke_text = joke[2]
         audio_filename = os.path.basename(joke[3]) if joke[3] else None
-        audio_file_path = f"Joke audio/{audio_filename}" if audio_filename else None
+        audio_file_path = f"/audio/{audio_filename}" if audio_filename else None
         return jsonify({'joke_text': joke_text, 'audio_file_path': audio_file_path})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -49,7 +49,12 @@ def search_jokes_endpoint():
         conn = get_db_connection()
         jokes = search_jokes(conn, term)
         conn.close()
-        return jsonify({'jokes': [{'joke_text': joke[2], 'audio_file_path': joke[3]} for joke in jokes]})
+        return jsonify({'jokes': [
+            {
+                'joke_text': joke[2],
+                'audio_file_path': f"/audio/{os.path.basename(joke[3])}" if joke[3] else None
+            } for joke in jokes
+        ]})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -59,9 +64,20 @@ def get_joke_by_number_endpoint(joke_number):
         conn = get_db_connection()
         joke = get_joke_by_number(conn, joke_number)
         conn.close()
-        return jsonify({'joke_text': joke[2], 'audio_file_path': joke[3]})
+        audio_filename = os.path.basename(joke[3]) if joke[3] else None
+        audio_file_path = f"/audio/{audio_filename}" if audio_filename else None
+        return jsonify({'joke_text': joke[2], 'audio_file_path': audio_file_path})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# Serve audio files from the 'Joke audio' directory
+from flask import send_from_directory
+
+@app.route('/audio/<path:filename>')
+def serve_audio(filename):
+    audio_dir = os.path.join(os.path.dirname(__file__), 'Joke audio')
+    return send_from_directory(audio_dir, filename)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
