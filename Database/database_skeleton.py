@@ -101,7 +101,7 @@ def populate_database(connection):
         match = audio_pattern.match(audio_file.name)
         if match:
             joke_id = int(match.group(1))
-            audio_map[joke_id] = str(audio_file.resolve())
+            audio_map[joke_id] = audio_file.name
 
     print(f"Found {len(audio_map)} audio files")
 
