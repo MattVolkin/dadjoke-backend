@@ -14,7 +14,12 @@ app = Flask(__name__)
 CORS(app)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'Database'))
-from database_skeleton import get_random_joke, search_jokes, get_joke_by_number
+try:
+    from database_skeleton import get_random_joke, search_jokes, get_joke_by_number
+except ImportError as e:
+    print(f"Error importing database_skeleton: {e}")
+    print(f"Current sys.path: {sys.path}")
+    raise
 import sqlite3
 
 
@@ -30,6 +35,10 @@ def get_random_joke_endpoint():
         conn = get_db_connection()
         joke = get_random_joke(conn)
         conn.close()
+        
+        if joke is None:
+            return jsonify({'error': 'No jokes found in database'}), 404
+            
         if isinstance(joke[2], list) or isinstance(joke[2], tuple):
             joke_text = '\n'.join(joke[2])
         else:
@@ -38,6 +47,7 @@ def get_random_joke_endpoint():
         audio_file_path = f"/audio/{audio_filename}" if audio_filename else None
         return jsonify({'joke_text': joke_text, 'audio_file_path': audio_file_path})
     except Exception as e:
+        print(f"Error in get_random_joke_endpoint: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/search', methods=['GET'])
