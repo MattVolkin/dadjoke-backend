@@ -20,7 +20,7 @@ app = Flask(__name__)
 # localhost dev origin) rather than opening the API to all origins.
 ALLOWED_ORIGINS = [
     origin.strip()
-    for origin in os.environ.get("ALLOWED_ORIGINS", "https://mattvolkin.github.io").split(",")
+    for origin in os.environ.get("ALLOWED_ORIGINS", "https://www.nachoaveragedadjoke.com").split(",")
     if origin.strip()
 ]
 CORS(app, origins=ALLOWED_ORIGINS)

@@ -65,10 +65,10 @@ gunicorn app:app -w 4 -b 0.0.0.0:5000
 
 ## Configuration
 
-- `ALLOWED_ORIGINS` — comma-separated list of origins allowed by CORS. Defaults to the production frontend origin (`https://mattvolkin.github.io`). Set it to include your own frontend/dev origins, e.g.:
+- `ALLOWED_ORIGINS` — comma-separated list of origins allowed by CORS. Defaults to the production frontend origin (`https://www.nachoaveragedadjoke.com`). Set it to include additional frontend/dev origins, e.g.:
 
 ```bash
-ALLOWED_ORIGINS="https://mattvolkin.github.io,http://localhost:5173" python app.py
+ALLOWED_ORIGINS="https://www.nachoaveragedadjoke.com,http://localhost:5173" python app.py
 ```
 
 - `PORT` — port the app listens on (default `5000`).
