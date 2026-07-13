@@ -29,7 +29,26 @@ def create_jokes_table(connection):
     )
 ''')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_jokes_joke_text ON jokes(joke_text)')
+    # joke_number is the stable public id and must be unique. The unique index
+    # also lets startup seeding use INSERT OR IGNORE so concurrent workers
+    # converge on the same rows instead of duplicating them.
+    cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_jokes_joke_number ON jokes(joke_number)')
     connection.commit()
+
+
+def scan_audio_map(audio_dir):
+    """Map joke index -> audio filename for jokeN.mp3 files present on disk.
+
+    Returns an empty map when the directory is absent (e.g. a deploy without
+    the gitignored audio corpus), so callers can seed jokes without audio.
+    """
+    audio_map = {}
+    audio_pattern = re.compile(r'joke(\d+)\.mp3')
+    for audio_file in Path(audio_dir).glob('joke*.mp3'):
+        match = audio_pattern.match(audio_file.name)
+        if match:
+            audio_map[int(match.group(1))] = audio_file.name
+    return audio_map
 
 def read_jokes_from_file(file_path=None):
     """
@@ -72,15 +91,7 @@ def populate_database(connection):
     print(f"Found {len(jokes)} jokes")
 
     print("Scanning audio files...")
-    audio_map = {}
-
-    audio_pattern = re.compile(r'joke(\d+)\.mp3')
-    for audio_file in audio_dir.glob('joke*.mp3'):
-        match = audio_pattern.match(audio_file.name)
-        if match:
-            joke_id = int(match.group(1))
-            audio_map[joke_id] = audio_file.name
-
+    audio_map = scan_audio_map(audio_dir)
     print(f"Found {len(audio_map)} audio files")
 
     print("Creating table...")
@@ -101,6 +112,51 @@ def populate_database(connection):
 
     connection.commit()
     print(f"Database populated with {inserted_count} jokes that have audio")
+
+def count_jokes(connection):
+    """Return the number of rows in the jokes table, or 0 if it doesn't exist."""
+    try:
+        return connection.execute('SELECT COUNT(*) FROM jokes').fetchone()[0]
+    except sqlite3.OperationalError:
+        # Table hasn't been created yet.
+        return 0
+
+
+def seed_if_empty(connection):
+    """Create and populate the jokes table if it is missing or empty.
+
+    This lets a fresh environment (such as a deploy with no committed
+    jokegen.db) become usable without a manual seed step. Unlike
+    populate_database, jokes are inserted whether or not their audio is
+    present, so the API works even when the gitignored audio corpus has not
+    been deployed (audio_file_path is left NULL for those jokes).
+
+    Safe to call from multiple workers: inserts use INSERT OR IGNORE keyed on
+    the unique joke_number, so concurrent seeders converge on the same rows
+    rather than duplicating them.
+
+    Returns True if it seeded the table, or False if jokes already existed.
+    """
+    create_jokes_table(connection)
+    if count_jokes(connection) > 0:
+        return False
+
+    script_dir = Path(__file__).parent
+    jokes = read_jokes_from_file(script_dir / 'clean_base.txt')
+    audio_map = scan_audio_map(script_dir.parent / 'backend' / 'Joke audio')
+
+    cursor = connection.cursor()
+    for joke_number, joke_text in enumerate(jokes):
+        if not joke_text.strip():
+            continue
+        cursor.execute(
+            'INSERT OR IGNORE INTO jokes (joke_number, joke_text, audio_file_path) '
+            'VALUES (?, ?, ?)',
+            (joke_number, joke_text, audio_map.get(joke_number)),
+        )
+    connection.commit()
+    return True
+
 
 def get_random_joke(connection):
     # Pick a random row by offset rather than ORDER BY RANDOM(), which sorts

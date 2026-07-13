@@ -42,13 +42,14 @@ python -m pip install -r backend/requirements.txt
 3. Seed the database:
 
 - The database (`backend/jokegen.db`) is not committed — each environment builds its own from `Database/clean_base.txt` and the audio in `backend/Joke audio/`.
-- Seeding is idempotent: running it again recreates the table if needed and replaces existing rows, so it is safe to re-run.
+- **The app self-seeds on startup:** if `backend/jokegen.db` is missing or has no jokes, the API builds it from `Database/clean_base.txt` the first time it starts. Jokes are inserted whether or not their audio is present (jokes without a matching mp3 get a `null` `audio_file_path`), so the API works on a fresh deploy with no manual step.
+- To seed (or re-seed) explicitly — which also associates audio and skips jokes without a matching mp3 — run:
 
 ```bash
 python Database/db.py
 ```
 
-After running, the SQLite database file will be at `backend/jokegen.db`.
+Both paths are idempotent and safe to re-run. After running, the SQLite database file will be at `backend/jokegen.db`.
 
 4. Run the API (development):
 
@@ -72,6 +73,13 @@ ALLOWED_ORIGINS="https://www.nachoaveragedadjoke.com,http://localhost:5173" pyth
 ```
 
 - `PORT` — port the app listens on (default `5000`).
+
+## Deployment
+
+- Set the start command to run the app with gunicorn from `backend/`, e.g. `gunicorn app:app` (add `-w <n>` for multiple workers).
+- No separate seed step is required: the app builds `jokegen.db` from the committed `Database/clean_base.txt` on first startup (see "Seed the database"). Startup seeding is concurrency-safe across gunicorn workers.
+- **Audio is not served in a default deploy.** The `joke*.mp3` files are gitignored, so unless you ship them another way, jokes are returned with `audio_file_path: null` and `/audio/...` will 404. To enable audio in production, deploy the `backend/Joke audio/` files alongside the app (e.g. via a persistent disk or object storage) and re-seed with `python Database/db.py` so the paths are associated.
+- Set `ALLOWED_ORIGINS` to your frontend origin(s) if they differ from the defaults.
 
 ## API Endpoints
 

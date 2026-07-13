@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # `import db` works regardless of the current working directory.
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'Database'))
 try:
-    from db import get_random_joke, search_jokes, get_joke_by_number
+    from db import get_random_joke, search_jokes, get_joke_by_number, seed_if_empty
 except ImportError as e:
     logger.error(f"Error importing db module: {e}")
     raise
@@ -59,6 +59,25 @@ def get_db_connection():
         yield connection
     finally:
         connection.close()
+
+
+def _ensure_database_seeded():
+    """Seed the database on startup if it is missing or empty.
+
+    Deploys (e.g. Render) start with no committed jokegen.db; without this the
+    first query would fail with "no such table: jokes" and every request would
+    return a 500. Seeding here builds the table from Database/clean_base.txt so
+    the API is usable on a fresh environment with no manual step.
+    """
+    try:
+        with get_db_connection() as conn:
+            if seed_if_empty(conn):
+                logger.info("Seeded jokes database at %s", DATABASE_PATH)
+    except Exception:
+        logger.exception("Failed to seed database on startup")
+
+
+_ensure_database_seeded()
 
 def _joke_response(joke):
     joke_text = joke['joke_text']
