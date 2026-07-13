@@ -39,9 +39,14 @@ except ImportError as e:
     raise
 
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), 'jokegen.db')
+AUDIO_DIR = os.path.join(os.path.dirname(__file__), 'Joke audio')
 
 DEFAULT_SEARCH_LIMIT = 20
 MAX_SEARCH_LIMIT = 100
+
+# Audio files are content-addressed by name and effectively immutable, so let
+# clients and CDNs cache them for a week.
+AUDIO_MAX_AGE = 60 * 60 * 24 * 7
 
 @contextmanager
 def get_db_connection():
@@ -115,8 +120,7 @@ def get_joke_by_number_endpoint(joke_number):
 
 @app.route('/audio/<path:filename>')
 def serve_audio(filename):
-    audio_dir = os.path.join(os.path.dirname(__file__), 'Joke audio')
-    return send_from_directory(audio_dir, filename)
+    return send_from_directory(AUDIO_DIR, filename, max_age=AUDIO_MAX_AGE)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

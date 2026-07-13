@@ -34,7 +34,14 @@ def client(tmp_path, monkeypatch):
     conn.commit()
     conn.close()
 
+    # Serve audio from a temp dir with one dummy file, so the audio tests don't
+    # depend on the real (gitignored) mp3 collection being present.
+    audio_dir = tmp_path / 'audio'
+    audio_dir.mkdir()
+    (audio_dir / 'joke1.mp3').write_bytes(b'ID3 dummy')
+
     monkeypatch.setattr(app_module, 'DATABASE_PATH', str(db_path))
+    monkeypatch.setattr(app_module, 'AUDIO_DIR', str(audio_dir))
     app_module.app.testing = True
     with app_module.app.test_client() as test_client:
         yield test_client
@@ -99,3 +106,10 @@ def test_cors_header_for_allowed_origin(client):
 def test_cors_header_absent_for_disallowed_origin(client):
     response = client.get('/random', headers={'Origin': 'https://evil.example.com'})
     assert response.headers.get('Access-Control-Allow-Origin') != 'https://evil.example.com'
+
+def test_audio_served_with_cache_control(client):
+    response = client.get('/audio/joke1.mp3')
+    assert response.status_code == 200
+    cache_control = response.headers.get('Cache-Control', '')
+    assert 'max-age=' in cache_control
+    assert f'max-age={app_module.AUDIO_MAX_AGE}' in cache_control
