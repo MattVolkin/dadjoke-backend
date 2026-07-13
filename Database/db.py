@@ -28,6 +28,7 @@ def create_jokes_table(connection):
         audio_file_path TEXT
     )
 ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_jokes_joke_text ON jokes(joke_text)')
     connection.commit()
 
 def read_jokes_from_file(file_path=None, verbose=False):
@@ -113,10 +114,15 @@ def get_random_joke(connection):
     return cursor.fetchone()
 
 def search_jokes(connection, search_term, limit=20, offset=0):
+    # Escape LIKE wildcards (% and _) and the escape char itself so a search
+    # for "50%" or "a_b" is matched literally rather than as a pattern.
+    escaped = (
+        search_term.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    )
     cursor = connection.cursor()
     cursor.execute(
-        '''SELECT * FROM jokes WHERE joke_text LIKE ? LIMIT ? OFFSET ?''',
-        (f'%{search_term}%', limit, offset),
+        r"SELECT * FROM jokes WHERE joke_text LIKE ? ESCAPE '\' LIMIT ? OFFSET ?",
+        (f'%{escaped}%', limit, offset),
     )
     jokes = cursor.fetchall()
     return jokes

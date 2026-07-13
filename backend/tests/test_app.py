@@ -16,13 +16,20 @@ def client(tmp_path, monkeypatch):
             audio_file_path TEXT
         )
     ''')
-    conn.execute(
-        "INSERT INTO jokes (joke_number, joke_text, audio_file_path) VALUES (?, ?, ?)",
+    rows = [
         (1, "Why did the chicken cross the road?", "joke1.mp3"),
-    )
-    conn.execute(
-        "INSERT INTO jokes (joke_number, joke_text, audio_file_path) VALUES (?, ?, ?)",
         (2, "Knock knock.", None),
+        # Wildcard-escaping fixtures: only #3 literally contains "50%".
+        (3, "Everything is 50% off today", None),
+        (4, "I ate 50 tacos at the fair", None),
+        # Pagination fixtures: three jokes sharing the word "pun".
+        (5, "pun number one", None),
+        (6, "pun number two", None),
+        (7, "pun number three", None),
+    ]
+    conn.executemany(
+        "INSERT INTO jokes (joke_number, joke_text, audio_file_path) VALUES (?, ?, ?)",
+        rows,
     )
     conn.commit()
     conn.close()
@@ -56,6 +63,23 @@ def test_search_returns_matching_jokes(client):
 def test_search_without_term_returns_400(client):
     response = client.get('/search')
     assert response.status_code == 400
+
+def test_search_escapes_like_wildcards(client):
+    # "50%" must match literally, not as a LIKE pattern (which would also
+    # match "50 tacos"). Only the joke containing the literal "50%" qualifies.
+    response = client.get('/search?term=50%25')  # %25 is URL-encoded '%'
+    assert response.status_code == 200
+    jokes = response.get_json()['jokes']
+    assert len(jokes) == 1
+    assert '50%' in jokes[0]['joke_text']
+
+def test_search_pagination_limit_and_offset(client):
+    first = client.get('/search?term=pun&limit=2').get_json()['jokes']
+    assert len(first) == 2
+    second = client.get('/search?term=pun&limit=2&offset=2').get_json()['jokes']
+    assert len(second) == 1
+    ids = {j['id'] for j in first} | {j['id'] for j in second}
+    assert ids == {5, 6, 7}
 
 def test_joke_by_number_not_found_returns_404(client):
     response = client.get('/joke/999')
