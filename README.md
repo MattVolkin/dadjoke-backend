@@ -9,7 +9,7 @@ A small Flask + SQLite backend for serving jokes, search, and audio to a static 
   - `requirements.txt` — Python dependencies
   - `requirements-dev.txt` — dependencies for running tests (includes `requirements.txt`)
   - `tests/` — pytest test suite
-  - `Joke audio/` — local (gitignored) directory of `joke*.mp3` files served by the app
+  - `Joke audio/` — committed directory of `joke*.mp3` files served by the app
 - `Database/` — helper scripts for creating and populating the SQLite database
   - `db.py` — utilities to create `jokegen.db`, read `clean_base.txt`, and populate the DB
   - `clean_base.txt` — cleaned jokes source (plain text)
@@ -34,10 +34,10 @@ A small Flask + SQLite backend for serving jokes, search, and audio to a static 
 python -m pip install -r backend/requirements.txt
 ```
 
-2. Obtain the audio (not committed):
+2. Audio (committed with the repo):
 
-- Audio files are **not** tracked in git (they are gitignored, matching the frontend). Place your `joke*.mp3` files in `backend/Joke audio/`, named `joke0.mp3`, `joke1.mp3`, … so each index matches the corresponding joke in `Database/clean_base.txt`.
-- The database and seeding step only associate audio that is actually present on disk; jokes without a matching mp3 are skipped.
+- The `joke*.mp3` files are committed under `backend/Joke audio/`, so a fresh clone already has them — there is no separate download step. They are named `joke0.mp3`, `joke1.mp3`, … so each index matches the corresponding joke in `Database/clean_base.txt`.
+- To add or replace audio, drop files into `backend/Joke audio/` using the same `jokeN.mp3` naming so the index lines up with `clean_base.txt`. Seeding only associates audio that is actually present on disk; a joke with no matching mp3 is still served, just with a `null` `audio_file_path`.
 
 3. Seed the database:
 
@@ -78,7 +78,7 @@ ALLOWED_ORIGINS="https://www.nachoaveragedadjoke.com,http://localhost:5173" pyth
 
 - Set the start command to run the app with gunicorn from `backend/`, e.g. `gunicorn app:app` (add `-w <n>` for multiple workers).
 - No separate seed step is required: the app builds `jokegen.db` from the committed `Database/clean_base.txt` on the **first request** (importing `app.py` has no side effects). Each gunicorn worker seeds once on its first request; seeding is idempotent (`INSERT OR IGNORE` keyed on `joke_number`) so concurrent workers are safe.
-- **Audio is not served in a default deploy.** The `joke*.mp3` files are gitignored, so unless you ship them another way, jokes are returned with `audio_file_path: null` and `/audio/...` will 404. To enable audio in production, deploy the `backend/Joke audio/` files alongside the app (e.g. via a persistent disk or object storage) and re-seed with `python Database/db.py` so the paths are associated.
+- **Audio is served in a default deploy.** The `joke*.mp3` files are committed under `backend/Joke audio/`, so they ship with the app and `/audio/<filename>` works out of the box — the self-seed step sets each joke's audio path from the mp3s present on disk, with no manual step. (Committing the audio keeps deploys zero-config; the tradeoff is a larger repo. For a much larger audio corpus, moving the files to object storage or Git LFS and storing keys in the DB would be the better home.)
 - Set `ALLOWED_ORIGINS` to your frontend origin(s) if they differ from the defaults.
 
 ## Why SQLite, and data persistence
