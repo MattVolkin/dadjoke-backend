@@ -8,6 +8,7 @@ import logging
 import os
 import sqlite3
 import sys
+import threading
 from contextlib import contextmanager
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -77,7 +78,23 @@ def _ensure_database_seeded():
         logger.exception("Failed to seed database on startup")
 
 
-_ensure_database_seeded()
+# Seed on the first request rather than at import time, so importing app.py has
+# no side effects (relevant for tests, tooling, and `flask` CLI introspection).
+# Under gunicorn this runs once per worker on its first request; seed_if_empty is
+# idempotent (INSERT OR IGNORE keyed on joke_number) so concurrent workers are safe.
+_seed_lock = threading.Lock()
+_seeded = False
+
+
+@app.before_request
+def _seed_on_first_request():
+    global _seeded
+    if _seeded:
+        return
+    with _seed_lock:
+        if not _seeded:
+            _ensure_database_seeded()
+            _seeded = True
 
 def _joke_response(joke):
     joke_text = joke['joke_text']

@@ -77,9 +77,28 @@ ALLOWED_ORIGINS="https://www.nachoaveragedadjoke.com,http://localhost:5173" pyth
 ## Deployment
 
 - Set the start command to run the app with gunicorn from `backend/`, e.g. `gunicorn app:app` (add `-w <n>` for multiple workers).
-- No separate seed step is required: the app builds `jokegen.db` from the committed `Database/clean_base.txt` on first startup (see "Seed the database"). Startup seeding is concurrency-safe across gunicorn workers.
+- No separate seed step is required: the app builds `jokegen.db` from the committed `Database/clean_base.txt` on the **first request** (importing `app.py` has no side effects). Each gunicorn worker seeds once on its first request; seeding is idempotent (`INSERT OR IGNORE` keyed on `joke_number`) so concurrent workers are safe.
 - **Audio is not served in a default deploy.** The `joke*.mp3` files are gitignored, so unless you ship them another way, jokes are returned with `audio_file_path: null` and `/audio/...` will 404. To enable audio in production, deploy the `backend/Joke audio/` files alongside the app (e.g. via a persistent disk or object storage) and re-seed with `python Database/db.py` so the paths are associated.
 - Set `ALLOWED_ORIGINS` to your frontend origin(s) if they differ from the defaults.
+
+## Why SQLite, and data persistence
+
+SQLite was chosen because the dataset is small and read-heavy (a fixed corpus of
+jokes served to a static frontend) with no concurrent-writer or multi-service
+requirements. It needs no separate database server to provision or operate — the
+data is a single file built from the committed `Database/clean_base.txt`, which
+keeps local dev and deploys zero-config.
+
+The tradeoff is persistence on ephemeral hosts. On platforms like Render's free
+tier the container filesystem is not durable: on a cold start or redeploy the
+instance starts fresh, `backend/jokegen.db` is gone, and the app simply rebuilds
+it from `clean_base.txt` on the first request. Because the joke corpus is the
+source of truth in version control, this is fine — nothing is lost. It does mean
+**any data written to the SQLite DB at runtime would not survive a restart**, so
+the DB is treated as a rebuildable cache, not a system of record. (User favorites
+live client-side in `localStorage`, so they are unaffected.) A host with a
+persistent disk, or a managed database, would be the path to durable server-side
+writes.
 
 ## API Endpoints
 
