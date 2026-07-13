@@ -46,7 +46,8 @@ def _joke_response(joke):
         joke_text = '\n'.join(joke_text)
     audio_filename = os.path.basename(joke['audio_file_path']) if joke['audio_file_path'] else None
     audio_file_path = f"/audio/{audio_filename}" if audio_filename else None
-    return {'joke_text': joke_text, 'audio_file_path': audio_file_path}
+    # Expose joke_number as a stable `id` so clients can key on it rather than joke text.
+    return {'id': joke['joke_number'], 'joke_text': joke_text, 'audio_file_path': audio_file_path}
 
 @app.route('/random', methods=['GET'])
 def get_random_joke_endpoint():

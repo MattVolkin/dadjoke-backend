@@ -36,8 +36,15 @@ def test_random_joke_returns_joke(client):
     response = client.get('/random')
     assert response.status_code == 200
     data = response.get_json()
+    assert 'id' in data
     assert 'joke_text' in data
     assert 'audio_file_path' in data
+
+def test_joke_response_includes_stable_id(client):
+    response = client.get('/joke/1')
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['id'] == 1
 
 def test_search_returns_matching_jokes(client):
     response = client.get('/search?term=chicken')
