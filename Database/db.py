@@ -5,6 +5,7 @@ Utilities to create, populate, and query the jokes SQLite database.
 """
 
 from pathlib import Path
+import random
 import re
 import sqlite3
 
@@ -101,10 +102,15 @@ def populate_database(connection):
     print(f"Database populated with {inserted_count} jokes that have audio")
 
 def get_random_joke(connection):
+    # Pick a random row by offset rather than ORDER BY RANDOM(), which sorts
+    # the whole table on every call. COUNT + OFFSET stays cheap as the table grows.
     cursor = connection.cursor()
-    cursor.execute('''SELECT * FROM jokes ORDER BY RANDOM() LIMIT 1''')
-    joke = cursor.fetchone()
-    return joke
+    count = cursor.execute('SELECT COUNT(*) FROM jokes').fetchone()[0]
+    if not count:
+        return None
+    offset = random.randrange(count)
+    cursor.execute('SELECT * FROM jokes LIMIT 1 OFFSET ?', (offset,))
+    return cursor.fetchone()
 
 def search_jokes(connection, search_term, limit=20, offset=0):
     cursor = connection.cursor()
