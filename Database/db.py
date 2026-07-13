@@ -28,7 +28,14 @@ def create_jokes_table(connection):
         audio_file_path TEXT
     )
 ''')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_jokes_joke_text ON jokes(joke_text)')
+    # We intentionally do NOT index joke_text. Search runs
+    # `joke_text LIKE '%term%'`, and a leading-wildcard LIKE cannot use a B-tree
+    # index, so such an index would only add write/storage cost without speeding
+    # up search. Accelerating substring search would require full-text search
+    # (SQLite FTS5), which is out of scope here and would also change matching
+    # semantics to token-based rather than literal substring (breaking, e.g.,
+    # the literal "50%" behavior). Drop any index left over from older code.
+    cursor.execute('DROP INDEX IF EXISTS idx_jokes_joke_text')
     # joke_number is the stable public id and must be unique. The unique index
     # also lets startup seeding use INSERT OR IGNORE so concurrent workers
     # converge on the same rows instead of duplicating them.
