@@ -14,7 +14,16 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+
+# Restrict CORS to an allowlist. ALLOWED_ORIGINS is a comma-separated list of
+# origins; it defaults to the production frontend origin. Set it (e.g. to add a
+# localhost dev origin) rather than opening the API to all origins.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("ALLOWED_ORIGINS", "https://mattvolkin.github.io").split(",")
+    if origin.strip()
+]
+CORS(app, origins=ALLOWED_ORIGINS)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -66,3 +66,12 @@ def test_joke_by_number_found(client):
     assert response.status_code == 200
     data = response.get_json()
     assert data['audio_file_path'] == '/audio/joke1.mp3'
+
+def test_cors_header_for_allowed_origin(client):
+    origin = app_module.ALLOWED_ORIGINS[0]
+    response = client.get('/random', headers={'Origin': origin})
+    assert response.headers.get('Access-Control-Allow-Origin') == origin
+
+def test_cors_header_absent_for_disallowed_origin(client):
+    response = client.get('/random', headers={'Origin': 'https://evil.example.com'})
+    assert response.headers.get('Access-Control-Allow-Origin') != 'https://evil.example.com'
