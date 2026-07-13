@@ -20,7 +20,7 @@ def connect_to_database():
 def create_jokes_table(connection):
     cursor = connection.cursor()
     cursor.execute('''
-    CREATE TABLE jokes (
+    CREATE TABLE IF NOT EXISTS jokes (
         id INTEGER PRIMARY KEY,
         joke_number INTEGER,
         joke_text TEXT,
@@ -61,8 +61,9 @@ def insert_joke(connection, joke_number, joke_text, audio_file_path):
 def populate_database(connection):
     """Populate the database with jokes that have matching audio files based on ID."""
     script_dir = Path(__file__).parent
-    jokes_path = script_dir.parent / 'Database' / 'clean_base.txt'
-    audio_dir = script_dir.parent / 'Joke audio'
+    jokes_path = script_dir / 'clean_base.txt'
+    # Audio lives under backend/, which is also where app.py serves it from.
+    audio_dir = script_dir.parent / 'backend' / 'Joke audio'
 
     print("Reading jokes from file...")
     jokes = read_jokes_from_file(jokes_path, verbose=True)
@@ -82,6 +83,10 @@ def populate_database(connection):
 
     print("Creating table...")
     create_jokes_table(connection)
+
+    # Idempotent reseed: clear any existing rows so re-running is safe.
+    print("Clearing existing rows...")
+    connection.execute('DELETE FROM jokes')
 
     print("Inserting jokes with audio...")
     inserted_count = 0
