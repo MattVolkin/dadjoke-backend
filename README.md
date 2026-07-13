@@ -1,6 +1,6 @@
 # JokeGen Backend
 
-A small Flask backend for serving jokes, search, and optional audio files to a static frontend.
+A small Flask + SQLite backend for serving jokes, search, and audio to a static frontend.
 
 ## Repository Structure
 
@@ -9,7 +9,7 @@ A small Flask backend for serving jokes, search, and optional audio files to a s
   - `requirements.txt` — Python dependencies
   - `requirements-dev.txt` — dependencies for running tests (includes `requirements.txt`)
   - `tests/` — pytest test suite
-  - `Joke audio/` — directory (optional) containing `joke*.mp3` audio files served by the app
+  - `Joke audio/` — local (gitignored) directory of `joke*.mp3` files served by the app
 - `Database/` — helper scripts for creating and populating the SQLite database
   - `db.py` — utilities to create `jokegen.db`, read `clean_base.txt`, and populate the DB
   - `clean_base.txt` — cleaned jokes source (plain text)
@@ -19,7 +19,7 @@ A small Flask backend for serving jokes, search, and optional audio files to a s
 
 - Serve random jokes and search by text, with pagination
 - Retrieve specific jokes by number
-- Optionally serve pre-recorded joke audio files from `backend/Joke audio`
+- Serve pre-recorded joke audio files from `backend/Joke audio`, with caching headers
 
 ## Requirements
 
@@ -34,20 +34,23 @@ A small Flask backend for serving jokes, search, and optional audio files to a s
 python -m pip install -r backend/requirements.txt
 ```
 
-2. Seed the database:
+2. Obtain the audio (not committed):
 
-- The database (`backend/jokegen.db`) is not committed to the repo (see `.gitignore`) — each environment builds its own from `Database/clean_base.txt` and the audio files in `Joke audio/`.
-- `Database/db.py` contains the helpers to create and populate `jokegen.db` in the `backend/` folder. Edit or supply `Database/clean_base.txt` and put audio files named like `joke0.mp3`, `joke1.mp3`, … in the `Joke audio/` folder.
+- Audio files are **not** tracked in git (they are gitignored, matching the frontend). Place your `joke*.mp3` files in `backend/Joke audio/`, named `joke0.mp3`, `joke1.mp3`, … so each index matches the corresponding joke in `Database/clean_base.txt`.
+- The database and seeding step only associate audio that is actually present on disk; jokes without a matching mp3 are skipped.
 
-Run the population script from the repository root:
+3. Seed the database:
+
+- The database (`backend/jokegen.db`) is not committed — each environment builds its own from `Database/clean_base.txt` and the audio in `backend/Joke audio/`.
+- Seeding is idempotent: running it again recreates the table if needed and replaces existing rows, so it is safe to re-run.
 
 ```bash
 python Database/db.py
 ```
 
-After running, the SQLite database file will be placed at `backend/jokegen.db`.
+After running, the SQLite database file will be at `backend/jokegen.db`.
 
-3. Run the API (development):
+4. Run the API (development):
 
 ```bash
 cd backend
@@ -60,15 +63,28 @@ Or run with `gunicorn` for a production-like server (from `backend/`):
 gunicorn app:app -w 4 -b 0.0.0.0:5000
 ```
 
+## Configuration
+
+- `ALLOWED_ORIGINS` — comma-separated list of origins allowed by CORS. Defaults to the production frontend origin (`https://mattvolkin.github.io`). Set it to include your own frontend/dev origins, e.g.:
+
+```bash
+ALLOWED_ORIGINS="https://mattvolkin.github.io,http://localhost:5173" python app.py
+```
+
+- `PORT` — port the app listens on (default `5000`).
+
 ## API Endpoints
 
-- `GET /random` — return a random joke (JSON: `joke_text`, `audio_file_path`)
+Each joke is returned as `{ "id", "joke_text", "audio_file_path" }`, where `id` is the stable `joke_number` and `audio_file_path` is a `/audio/...` URL (or `null` if the joke has no audio).
+
+- `GET /random` — return a random joke
 - `GET /search?term=...&limit=20&offset=0` — search jokes by text, paginated
-  - `term` (required) — text to search for
+  - `term` (required) — text to search for; LIKE wildcards (`%`, `_`) are treated literally
   - `limit` (optional, default `20`, max `100`) — max number of results to return
   - `offset` (optional, default `0`) — number of matching results to skip
+  - returns `{ "jokes": [ ... ] }`
 - `GET /joke/<number>` — get joke by its `joke_number`; returns `404` if not found
-- `GET /audio/<filename>` — serve an audio file from the `Joke audio` folder
+- `GET /audio/<filename>` — serve an audio file from `backend/Joke audio` (sent with a one-week `Cache-Control`)
 
 Examples:
 
@@ -88,7 +104,6 @@ python -m pytest tests/
 
 ## Notes & Troubleshooting
 
-- The Flask app expects `Database/db.py` to expose `get_random_joke`, `search_jokes`, and `get_joke_by_number`.
-- If the app raises import errors, ensure the working directory and `sys.path` are configured so `Database` is importable; running `app.py` from the `backend/` directory is recommended.
-- Audio files are served directly from the `backend/Joke audio` directory. Ensure filenames match those stored in the database.
-- `Joke audio/` is committed directly since the app serves it as-is. If the audio collection grows much larger, consider migrating it to [Git LFS](https://git-lfs.com/) instead of committing the raw files.
+- The Flask app expects `Database/db.py` to expose `get_random_joke`, `search_jokes`, and `get_joke_by_number`. It adds `Database/` to `sys.path` at startup because it is a sibling directory rather than an installed package.
+- If the app raises import errors, run `app.py` from the `backend/` directory.
+- Audio files are served directly from `backend/Joke audio`. Ensure filenames match those stored in the database (`jokeN.mp3`).
