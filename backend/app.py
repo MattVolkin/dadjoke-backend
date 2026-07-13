@@ -28,6 +28,9 @@ CORS(app, origins=ALLOWED_ORIGINS)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# The DB helpers live in the sibling Database/ directory, which is not an
+# installed package (this repo has no packaging/setup). Add it to sys.path so
+# `import db` works regardless of the current working directory.
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'Database'))
 try:
     from db import get_random_joke, search_jokes, get_joke_by_number

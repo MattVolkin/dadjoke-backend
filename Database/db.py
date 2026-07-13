@@ -31,7 +31,7 @@ def create_jokes_table(connection):
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_jokes_joke_text ON jokes(joke_text)')
     connection.commit()
 
-def read_jokes_from_file(file_path=None, verbose=False):
+def read_jokes_from_file(file_path=None):
     """
     Read jokes from a cleaned text file.
     Each joke is separated by a blank line.
@@ -68,7 +68,7 @@ def populate_database(connection):
     audio_dir = script_dir.parent / 'backend' / 'Joke audio'
 
     print("Reading jokes from file...")
-    jokes = read_jokes_from_file(jokes_path, verbose=True)
+    jokes = read_jokes_from_file(jokes_path)
     print(f"Found {len(jokes)} jokes")
 
     print("Scanning audio files...")

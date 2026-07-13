@@ -1,2 +1,10 @@
-# Auto detect text files and perform LF normalization
+# Auto detect text files and normalize to LF in the repository.
 * text=auto
+
+# Be explicit for the source/text types in this repo.
+*.py   text
+*.txt  text
+*.md   text
+
+# Audio is binary (and gitignored); never munge its bytes.
+*.mp3  binary
