@@ -2,7 +2,5 @@
 __pycache__/
 *.pyc
 
-# Audio assets are not committed (see README "Obtaining the audio").
-# Keep the local copy on disk under backend/Joke audio/ so the app can serve it.
-Joke audio/
-*.mp3
+# Audio assets (backend/Joke audio/*.mp3) are committed so the deployed API
+# can serve them from /audio/<filename>.
