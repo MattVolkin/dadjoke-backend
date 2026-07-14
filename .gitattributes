@@ -6,5 +6,5 @@
 *.txt  text
 *.md   text
 
-# Audio is binary (and gitignored); never munge its bytes.
+# Audio is binary and committed to the repo; never munge its bytes.
 *.mp3  binary

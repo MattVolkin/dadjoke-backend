@@ -35,7 +35,7 @@ def client(tmp_path, monkeypatch):
     conn.close()
 
     # Serve audio from a temp dir with one dummy file, so the audio tests don't
-    # depend on the real (gitignored) mp3 collection being present.
+    # depend on the full committed mp3 collection being present.
     audio_dir = tmp_path / 'audio'
     audio_dir.mkdir()
     (audio_dir / 'joke1.mp3').write_bytes(b'ID3 dummy')

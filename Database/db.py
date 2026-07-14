@@ -46,8 +46,9 @@ def create_jokes_table(connection):
 def scan_audio_map(audio_dir):
     """Map joke index -> audio filename for jokeN.mp3 files present on disk.
 
-    Returns an empty map when the directory is absent (e.g. a deploy without
-    the gitignored audio corpus), so callers can seed jokes without audio.
+    Returns an empty map when the directory is absent (e.g. a deploy that
+    hasn't checked out the committed audio files), so callers can seed jokes
+    without audio.
     """
     audio_map = {}
     audio_pattern = re.compile(r'joke(\d+)\.mp3')
@@ -135,8 +136,8 @@ def seed_if_empty(connection):
     This lets a fresh environment (such as a deploy with no committed
     jokegen.db) become usable without a manual seed step. Unlike
     populate_database, jokes are inserted whether or not their audio is
-    present, so the API works even when the gitignored audio corpus has not
-    been deployed (audio_file_path is left NULL for those jokes).
+    present, so the API works even when the audio files have not been
+    checked out (audio_file_path is left NULL for those jokes).
 
     Safe to call from multiple workers: inserts use INSERT OR IGNORE keyed on
     the unique joke_number, so concurrent seeders converge on the same rows
