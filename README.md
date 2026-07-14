@@ -81,6 +81,19 @@ ALLOWED_ORIGINS="https://www.nachoaveragedadjoke.com,http://localhost:5173" pyth
 - **Audio is served in a default deploy.** The `joke*.mp3` files are committed under `backend/Joke audio/`, so they ship with the app and `/audio/<filename>` works out of the box — the self-seed step sets each joke's audio path from the mp3s present on disk, with no manual step. (Committing the audio keeps deploys zero-config; the tradeoff is a larger repo. For a much larger audio corpus, moving the files to object storage or Git LFS and storing keys in the DB would be the better home.)
 - Set `ALLOWED_ORIGINS` to your frontend origin(s) if they differ from the defaults.
 
+### Avoiding free-tier cold starts
+
+On a free tier that spins the service down after a period of inactivity (e.g.
+Render's free web service sleeps after 15 minutes and then takes ~30-60s to spin
+back up), keep the instance warm by pinging it on a shorter interval. Point a free
+uptime monitor (e.g. cron-job.org) at `GET /healthz` **every ~10 minutes**. The
+`/healthz` endpoint is dependency-free so pings don't fail while the app is up
+(which avoids monitors auto-disabling a job after repeated failures). Enable the
+monitor's failure/auto-disable email alerts, and consider a second independent
+monitor for redundancy so a single disabled job doesn't bring cold starts back.
+Note this stays within Render's free 750 instance-hours/month only if it is the
+sole free web service in the workspace.
+
 ## Why SQLite, and data persistence
 
 SQLite was chosen because the dataset is small and read-heavy (a fixed corpus of
@@ -112,6 +125,7 @@ Each joke is returned as `{ "id", "joke_text", "audio_file_path" }`, where `id` 
   - returns `{ "jokes": [ ... ] }`
 - `GET /joke/<number>` — get joke by its `joke_number`; returns `404` if not found
 - `GET /audio/<filename>` — serve an audio file from `backend/Joke audio` (sent with a one-week `Cache-Control`)
+- `GET /healthz` — lightweight liveness check; returns `{ "status": "ok" }` with `200`. Does no DB/disk/external work, so it can't fail while the app is up. Intended as the target for an uptime pinger (see Deployment).
 
 Examples:
 

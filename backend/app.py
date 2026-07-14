@@ -161,6 +161,13 @@ def get_joke_by_number_endpoint(joke_number):
 def serve_audio(filename):
     return send_from_directory(AUDIO_DIR, filename, max_age=AUDIO_MAX_AGE)
 
+@app.route('/healthz', methods=['GET'])
+def healthz():
+    # Lightweight liveness check with no DB/disk/external dependency, used as the
+    # target for uptime pingers that keep the free-tier instance from spinning
+    # down. Kept dependency-free so a ping can't fail while the app is up.
+    return jsonify({'status': 'ok'}), 200
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
